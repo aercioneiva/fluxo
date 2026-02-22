@@ -1,3 +1,6 @@
+const dotenv = require('dotenv');
+dotenv.config();
+
 const express = require('express');
 const { FluxoEngine } = require('./chatbot-flow');
 const { fluxoAtendimentoRBX } = require('./rbx-flow');

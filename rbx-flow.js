@@ -2,22 +2,22 @@ const axios = require('axios');
 
 const fluxoAtendimentoRBX = {
   nome: 'atendimento_rbx',
-  stepInicial: 'welcome',
+  stepInicial: 'inicio',
   
   steps: {
-    welcome: {
+    inicio: {
       acao: async (dados, mensagem) => {
         console.log(dados)
         return {
           mensagem: 'Olá, que bom que você entrou em contato com a Loga!',
           tipo: 'text',
-          proximoStep: 'secondeWelcome',
+          proximoStep: 'apresentacao',
           aguardarResposta: false
         };
       }
     },
 
-    secondeWelcome: {
+    apresentacao: {
       acao: async (dados, mensagem) => {
         return {
           mensagem: 'Eu sou a Lara, assistente virtual da RBXSoft!',

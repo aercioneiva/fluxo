@@ -1,3 +1,14 @@
+CREATE TABLE `user_flow` (
+  `id` uuid NOT NULL,
+  `contract` uuid NOT NULL,
+  `current_flow` varchar(50) NOT NULL,
+  `current_step` varchar(50) NOT NULL,
+  `data` json NOT NULL,
+  `history` json NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 # 🤖 Sistema de Fluxo Conversacional - Node.js
 
 Sistema flexível e escalável para criar fluxos conversacionais (chatbot) com facilidade.
