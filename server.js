@@ -1,12 +1,12 @@
 const express = require('express');
-const { FluxoEngine, fluxoAtendimento, fluxoSuporte } = require('./chatbot-flow');
+const { FluxoEngine } = require('./chatbot-flow');
+const { fluxoAtendimentoRBX } = require('./rbx-flow');
 
 const app = express();
 const engine = new FluxoEngine();
 
 // Registra os fluxos disponíveis
-engine.registrarFluxo('atendimento_cadastro', fluxoAtendimento);
-engine.registrarFluxo('suporte_tecnico', fluxoSuporte);
+engine.registrarFluxo('atendimento_rbx', fluxoAtendimentoRBX);
 
 app.use(express.json());
 
@@ -16,9 +16,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// ============================================
-// ENDPOINTS DA API
-// ============================================
 
 // Listar fluxos disponíveis
 app.get('/fluxos', (req, res) => {
@@ -28,16 +25,17 @@ app.get('/fluxos', (req, res) => {
 
 // Iniciar um novo fluxo
 app.post('/chat/iniciar', async (req, res) => {
-  const { usuarioId, fluxo } = req.body;
+  const { usuarioId, fluxo, contract } = req.body;
   
-  if (!usuarioId || !fluxo) {
+  if (!usuarioId || !fluxo || !contract) {
     return res.status(400).json({ 
-      erro: 'usuarioId e fluxo são obrigatórios' 
+      erro: 'usuarioId, fluxo e contract são obrigatórios' 
     });
   }
   
   try {
-    const resposta = await engine.iniciarFluxo(usuarioId, fluxo);
+    console.log(`Iniciando fluxo "${fluxo}" para usuário "${usuarioId}" com contract "${contract}"`);  
+    const resposta = await engine.iniciarFluxo(usuarioId, fluxo, contract);
     res.json({
       sucesso: true,
       ...resposta
