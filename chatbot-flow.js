@@ -19,7 +19,7 @@ class FluxoEngine {
     }
 
     const id = uuidv4();
-    Cache.set(id,{
+    await Cache.set(id,{
       id: id,
       contract: contract,
       fluxoAtual: nomeFluxo,
@@ -49,7 +49,7 @@ class FluxoEngine {
 
     await Cache.del(usuarioId);
 
-    Cache.set(usuarioId,{
+    await Cache.set(usuarioId,{
            id: sessao.id,
            contract: sessao.contract,
            fluxoAtual: sessao.fluxoAtual,
@@ -97,7 +97,7 @@ class FluxoEngine {
 
     // Verifica se deve finalizar
     if (resultado.finalizar) {
-      //this.sessoes.delete(usuarioId);
+      await Cache.del(usuarioId);
       return {
         mensagens: _mensagensAcumuladas,
         finalizado: true,
@@ -112,7 +112,7 @@ class FluxoEngine {
 
     await Cache.del(usuarioId);
 
-    Cache.set(usuarioId,{
+    await Cache.set(usuarioId,{
            id: sessao.id,
            contract: sessao.contract,
            fluxoAtual: sessao.fluxoAtual,
