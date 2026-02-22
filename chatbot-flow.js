@@ -1,5 +1,6 @@
-const db = require('./connection.js');
 const { v4: uuidv4 } = require('uuid');
+const Cache = require('./cache');
+
 
 class FluxoEngine {
   constructor() {
@@ -17,67 +18,59 @@ class FluxoEngine {
       throw new Error(`Fluxo ${nomeFluxo} não encontrado`);
     }
 
-   
     const id = uuidv4();
-        await db.insert({
-           id: id,
-           contract: contract,
-           current_flow: nomeFluxo,
-           current_step: fluxo.stepInicial,
-           data: JSON.stringify({contract, usuarioId}),
-           history: JSON.stringify([]),
-         })
-         .into('user_flow');
+    Cache.set(id,{
+      id: id,
+      contract: contract,
+      fluxoAtual: nomeFluxo,
+      stepAtual: fluxo.stepInicial,
+      dados: {contract, usuarioId},
+      historico: [],
+    },60 * 60 * 24);
 
-         console.log('Sessão iniciada com ID:', id);
+    console.log('Sessão iniciada com ID:', id);
 
     return this.executarStep(id);
   }
 
   async processarMensagem(usuarioId, mensagem) {
-    let sessao = {};
-    const [ rows ] = await db.raw(`SELECT * FROM user_flow WHERE id=?`,[usuarioId]);
-    if(rows.length > 0) {
-      console.log(rows);
-      sessao.fluxoAtual = rows[0].current_flow;
-      sessao.stepAtual = rows[0].current_step;
-      sessao.dados = JSON.parse(rows[0].data);
-      sessao.historico = JSON.parse(rows[0].history);
-    }else{
-       return {
-        mensagens: ['Sessão não encontrada. Inicie um novo atendimento.'],
+    const sessao = await Cache.get(usuarioId);
+
+    if(!sessao) {
+      return {
+        mensagens: [{mensagem: 'Sessão não encontrada. Inicie um novo atendimento.', tipo: 'text'}],
         finalizado: true
       };
     }
-    
+
     // Armazena a mensagem do usuário
     sessao.dados.ultimaMensagem = mensagem;
     sessao.historico.push({ tipo: 'usuario', mensagem });
 
-    const update = await db('user_flow')
-            .where({ id: usuarioId })
-            .update({
-              data: JSON.stringify(sessao.dados),
-              history: JSON.stringify(sessao.historico)
-            }); 
+    await Cache.del(usuarioId);
+
+    Cache.set(usuarioId,{
+           id: sessao.id,
+           contract: sessao.contract,
+           fluxoAtual: sessao.fluxoAtual,
+           stepAtual: sessao.stepAtual,
+           dados: sessao.dados,
+           historico: sessao.historico,
+        },
+        60 * 60 * 24);
 
     // Executa o step atual com a mensagem do usuário
     return await this.executarStep(usuarioId, mensagem);
   }
 
   async executarStep(usuarioId, mensagemUsuario = null, _mensagensAcumuladas = []) {
-    let sessao = {};
-    const [ rows ] = await db.raw(`SELECT * FROM user_flow WHERE id=?`,[usuarioId]);
-    if(rows.length > 0) {
-      sessao.fluxoAtual = rows[0].current_flow;
-      sessao.stepAtual = rows[0].current_step;
-      sessao.dados = JSON.parse(rows[0].data);
-      sessao.historico = JSON.parse(rows[0].history);
-    }else{
-        return {
-          mensagens: ['Sessão não encontrada. Inicie um novo atendimento.'],
-          finalizado: true
-        };
+    const sessao = await Cache.get(usuarioId);
+    
+    if(!sessao) {
+      return {
+        mensagens: [{mensagem: 'Sessão não encontrada. Inicie um novo atendimento.', tipo: 'text'}],
+        finalizado: true
+      };
     }
 
     const fluxo = this.fluxos.get(sessao.fluxoAtual);
@@ -85,7 +78,7 @@ class FluxoEngine {
 
     if (!step) {
       return {
-        mensagens: [..._mensagensAcumuladas, 'Erro: Step não encontrado'],
+        mensagens: [..._mensagensAcumuladas, {mensagem: 'Step não encontrado. Encerrando atendimento.', tipo: 'text'}],
         finalizado: true
       };
     }
@@ -98,7 +91,7 @@ class FluxoEngine {
       sessao.historico.push({ tipo: 'bot', mensagem: resultado.mensagem });
       _mensagensAcumuladas.push({
         tipo: resultado.tipo || null,
-        content: resultado.mensagem
+        mensagem: resultado.mensagem
       });
     }
 
@@ -117,13 +110,19 @@ class FluxoEngine {
       sessao.stepAtual = resultado.proximoStep;
     }
 
-    const update = await db('user_flow')
-            .where({ id: usuarioId })
-            .update({
-              current_step: sessao.stepAtual,
-              data: JSON.stringify(sessao.dados),
-              history: JSON.stringify(sessao.historico)
-            });
+    await Cache.del(usuarioId);
+
+    Cache.set(usuarioId,{
+           id: sessao.id,
+           contract: sessao.contract,
+           fluxoAtual: sessao.fluxoAtual,
+           stepAtual: sessao.stepAtual,
+           dados: sessao.dados,
+           historico: sessao.historico,
+        },
+        60 * 60 * 24
+    );
+
     // Se não aguarda resposta, continua executando e acumulando mensagens
     if (!resultado.aguardarResposta && resultado.proximoStep) {
       return await this.executarStep(usuarioId, null, _mensagensAcumuladas);
@@ -138,7 +137,7 @@ class FluxoEngine {
   }
 
   obterSessao(usuarioId) {
-    return this.sessoes.get(usuarioId);
+    return Cache.get(usuarioId);
   }
 }
 
